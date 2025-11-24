@@ -77,10 +77,11 @@ public class CustomerService {
     // [ĐĂNG NHẬP] Kiểm tra user/pass và trạng thái khóa
     public Customer login(String username, String password) throws SQLException{
         Customer cus = customerDAO.findByLogin(username, password);
+        Account acc = accountDAO.getAccountByUsername(username);
         if(cus == null){
             throw new IllegalArgumentException("Tên đăng nhập hoặc mật khẩu không đúng.");
         }
-        if("LOCKED".equalsIgnoreCase(cus.getUserStatus())){
+        if("LOCKED".equalsIgnoreCase(acc.getAccountStatus())){
             throw new IllegalArgumentException("Tài khoản đã bị khóa.");
         }
         return cus;

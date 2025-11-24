@@ -199,7 +199,7 @@ public class CustomerDAO {
         k.setPlaceOfResidence(rs.getString("place_of_residence"));
         k.setEmail(rs.getString("email"));
         k.setPhone(rs.getString("phone"));
-        k.setUserStatus(rs.getString("user_status"));
+//        k.setUserStatus(rs.getString("user_status"));
         return k;
     }
 }

@@ -92,12 +92,12 @@ public class AdminService {
     
     // [KHÓA TÀI KHOẢN] Khóa tài khoản khách hàng
     public void lockCustomerAccount(int customerId) throws SQLException {
-        customerDAO.updateStatus(customerId, "LOCKED");
+        accountDAO.updateStatus(customerId, "LOCKED");
     }
     
     // [MỞ KHÓA] Mở khóa tài khoản khách hàng
     public void unlockCustomerAccount(int customerId) throws SQLException {
-        customerDAO.updateStatus(customerId, "ACTIVE");
+        accountDAO.updateStatus(customerId, "ACTIVE");
     }
     
     // [CHI TIẾT] Lấy thông tin khách hàng theo ID
