@@ -5,18 +5,19 @@ import java.sql.*;
 import model.Admin;
 
 public class AdminDAO {
-    
+
     // [ĐĂNG NHẬP ADMIN] Kiểm tra xác thực tài khoản quản trị viên
     public Admin findByLogin(String username, String password) throws SQLException {
         String sql = "SELECT * FROM admins WHERE username=? AND password=?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, username);
             ps.setString(2, password);
 
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return extract(rs);
+            if (rs.next())
+                return extract(rs);
             return null;
         }
     }
@@ -25,11 +26,12 @@ public class AdminDAO {
     public Admin findByID(int id) throws SQLException {
         String sql = "SELECT * FROM admins WHERE admin_id=?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, id);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return extract(rs);
+            if (rs.next())
+                return extract(rs);
             return null;
         }
     }

@@ -16,7 +16,7 @@ public class AdminService {
     private final AccountDAO accountDAO = new AccountDAO();
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final TransactionDAO transactionDAO = new TransactionDAO();
-    
+
     // === CÁC METHOD CƠ BẢN ===
 
     // [ĐĂNG NHẬP] Xác thực Admin
@@ -27,7 +27,7 @@ public class AdminService {
         }
         return admin;
     }
-    
+
     // [QUẢN TRỊ] Khóa/Mở khóa tài khoản ngân hàng
     public void toggleAccountStatus(int accountId, boolean isLock) throws SQLException {
         String status = isLock ? "LOCKED" : "ACTIVE";
@@ -36,21 +36,12 @@ public class AdminService {
         }
         accountDAO.updateStatus(accountId, status);
     }
-    
-    // [QUẢN TRỊ] Khóa/Mở khóa người dùng (User)
-    public void toggleCustomerStatus(int customerId, boolean isLock) throws SQLException {
-        String status = isLock ? "LOCKED" : "ACTIVE";
-        if (customerDAO.findByID(customerId) == null) {
-             throw new IllegalArgumentException("Khách hàng không tồn tại.");
-        }
-        customerDAO.updateStatus(customerId, status);
-    }
-    
+
     // [THỐNG KÊ] Lấy tổng số lượng khách hàng
     public int getTotalCustomers() throws SQLException {
         return customerDAO.getAllCustomers().size();
     }
-    
+
     // [THỐNG KÊ] Lấy tổng số dư toàn hệ thống (Tổng tiền trong ngân hàng)
     public BigDecimal getTotalSystemBalance() throws SQLException {
         List<Account> accounts = accountDAO.findAccountAll();
@@ -60,7 +51,7 @@ public class AdminService {
         }
         return total;
     }
-    
+
     // [THỐNG KÊ] Lấy danh sách giao dịch gần đây (Cho Dashboard)
     public List<Transaction> getRecentTransactions() throws SQLException {
         return transactionDAO.getAllTransactions();
@@ -70,56 +61,71 @@ public class AdminService {
 
     // [DANH SÁCH] Lấy tất cả khách hàng
     public List<Customer> getAllCustomers() throws SQLException {
-        return customerDAO.getAllCustomers();
+        List<Customer> list = customerDAO.getAllCustomers();
+        for (Customer c : list) {
+            List<Account> accounts = accountDAO.findByCustomer(c.getCustomerID());
+            if (accounts.isEmpty()) {
+                c.setUserStatus("ACTIVE"); // Không có tài khoản thì mặc định ACTIVE
+                continue;
+            }
+            boolean locked = accounts.stream()
+                    .anyMatch(acc -> "LOCKED".equalsIgnoreCase(acc.getAccountStatus()));
+            if (locked) {
+                c.setUserStatus("LOCKED");
+            } else {
+                c.setUserStatus("ACTIVE");
+            }
+        }
+        return list;
     }
-    
+
     // [TÌM KIẾM] Tìm khách hàng theo từ khóa (Username, Tên, Email, SĐT, CCCD)
     public List<Customer> searchCustomers(String keyword) throws SQLException {
-        List<Customer> allCustomers = customerDAO.getAllCustomers();
+        List<Customer> allCustomers = getAllCustomers();
         List<Customer> result = new ArrayList<>();
         String key = keyword.toLowerCase();
         for (Customer customer : allCustomers) {
             if (customer.getUsername().toLowerCase().contains(key) ||
-                customer.getFullName().toLowerCase().contains(key) ||
-                customer.getEmail().toLowerCase().contains(key) ||
-                customer.getPhone().toLowerCase().contains(key) ||
-                customer.getCitizenID().toLowerCase().contains(key)) {
+                    customer.getFullName().toLowerCase().contains(key) ||
+                    (customer.getEmail() != null && customer.getEmail().toLowerCase().contains(key)) ||
+                    (customer.getPhone() != null && customer.getPhone().toLowerCase().contains(key)) ||
+                    (customer.getCitizenID() != null && customer.getCitizenID().toLowerCase().contains(key))) {
                 result.add(customer);
             }
         }
         return result;
     }
-    
+
     // [KHÓA TÀI KHOẢN] Khóa tài khoản khách hàng
-    public void lockCustomerAccount(int customerId) throws SQLException {
-        accountDAO.updateStatus(customerId, "LOCKED");
+    public void lockCustomerAccount(int accountId) throws SQLException {
+        accountDAO.updateStatus(accountId, "LOCKED");
     }
-    
+
     // [MỞ KHÓA] Mở khóa tài khoản khách hàng
-    public void unlockCustomerAccount(int customerId) throws SQLException {
-        accountDAO.updateStatus(customerId, "ACTIVE");
+    public void unlockCustomerAccount(int accountId) throws SQLException {
+        accountDAO.updateStatus(accountId, "ACTIVE");
     }
-    
+
     // [CHI TIẾT] Lấy thông tin khách hàng theo ID
     public Customer getCustomerById(int customerId) throws SQLException {
         return customerDAO.findByID(customerId);
     }
-    
+
     // [CHI TIẾT] Lấy danh sách tài khoản ngân hàng của khách
     public List<Account> getCustomerAccounts(int customerId) throws SQLException {
         return accountDAO.findByCustomer(customerId);
     }
-    
+
     // [CHI TIẾT] Lấy lịch sử giao dịch của khách hàng
     public List<Transaction> getTransactionHistory(int customerId) throws SQLException {
         return transactionDAO.getTransactionsByCustomerId(customerId);
     }
-    
+
     // [CẬP NHẬT] Admin sửa thông tin khách hàng
     public void updateCustomerInfo(Customer customer) throws SQLException {
         customerDAO.updateCustomerInfo(customer);
     }
-    
+
     // [GIAO DỊCH] Admin nạp tiền cho khách
     public void depositForCustomer(int customerId, long amountVal, String description) throws SQLException {
         List<Account> accounts = accountDAO.findByCustomer(customerId);
@@ -204,25 +210,5 @@ public class AdminService {
         } catch (SQLException e) {
             throw new SQLException("Lỗi khi chuyển tiền: " + e.getMessage());
         }
-    }
-    
-    // --- HELPER METHODS ---
-
-    // [HELPER] Lấy tổng số dư của 1 khách hàng
-    public BigDecimal getCustomerTotalBalance(int customerId) throws SQLException {
-        List<Account> accounts = getCustomerAccounts(customerId);
-        BigDecimal total = BigDecimal.ZERO;
-        for (Account acc : accounts) total = total.add(acc.getBalance());
-        return total;
-    }
-    
-    // [HELPER] Đếm số giao dịch của 1 khách hàng
-    public int getCustomerTransactionCount(int customerId) throws SQLException {
-        return transactionDAO.getTransactionCountByCustomerId(customerId);
-    }
-    
-    // [XÓA] Xóa một giao dịch (Cẩn thận khi dùng)
-    public void deleteTransaction(int transactionId) throws SQLException {
-        transactionDAO.deleteTransaction(transactionId);
     }
 }

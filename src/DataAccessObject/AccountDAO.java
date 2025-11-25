@@ -8,11 +8,13 @@ import model.Account;
 
 public class AccountDAO {
 
-    // [TẠO TÀI KHOẢN] Thêm mới tài khoản vào DB với số dư ban đầu và trạng thái ACTIVE
-    public Account createAccount(int customerID, String accountNumber, String pinSmart, BigDecimal balance) throws SQLException {
+    // [TẠO TÀI KHOẢN] Thêm mới tài khoản vào DB với số dư ban đầu và trạng thái
+    // ACTIVE
+    public Account createAccount(int customerID, String accountNumber, String pinSmart, BigDecimal balance)
+            throws SQLException {
         String sql = "INSERT INTO accounts(customer_id, account_number, balance, pin_smart, account_status) VALUES(?,?,?,?,?)";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, customerID);
             ps.setString(2, accountNumber);
             ps.setBigDecimal(3, balance);
@@ -22,7 +24,8 @@ public class AccountDAO {
 
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 Account a = new Account();
-                if (rs.next()) a.setAccountID(rs.getInt(1));
+                if (rs.next())
+                    a.setAccountID(rs.getInt(1));
                 a.setCustomerID(customerID);
                 a.setAccountNumber(accountNumber);
                 a.setBalance(balance);
@@ -37,36 +40,39 @@ public class AccountDAO {
     public Account findByID(int id) throws SQLException {
         String sql = "SELECT * FROM accounts WHERE account_id=?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return extract(rs);
+            if (rs.next())
+                return extract(rs);
             return null;
         }
     }
-    
+
     // [TÌM KIẾM] Lấy thông tin tài khoản theo Số tài khoản
     public Account findByAccountNumber(String accountNumber) throws SQLException {
         String sql = "SELECT * FROM accounts WHERE account_number=?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, accountNumber);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return extract(rs);
+            if (rs.next())
+                return extract(rs);
             return null;
         }
     }
-    
+
     // [TÌM KIẾM] Lấy tài khoản dựa trên Username khách hàng (Join bảng customers)
     public Account getAccountByUsername(String username) throws SQLException {
         String sql = "SELECT a.* FROM accounts a " +
-                     "JOIN customers c ON a.customer_id = c.customer_id " +
-                     "WHERE c.username = ?";
+                "JOIN customers c ON a.customer_id = c.customer_id " +
+                "WHERE c.username = ?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, username);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return extract(rs);
+            if (rs.next())
+                return extract(rs);
             return null;
         }
     }
@@ -76,10 +82,11 @@ public class AccountDAO {
         String sql = "SELECT * FROM accounts WHERE customer_id=? ORDER BY account_id DESC";
         List<Account> list = new ArrayList<>();
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, customerID);
             ResultSet rs = ps.executeQuery();
-            while (rs.next()) list.add(extract(rs));
+            while (rs.next())
+                list.add(extract(rs));
         }
         return list;
     }
@@ -89,9 +96,10 @@ public class AccountDAO {
         String sql = "SELECT * FROM accounts ORDER BY account_id DESC";
         List<Account> list = new ArrayList<>();
         try (Connection conn = DatabaseConnection.getConnection();
-             Statement s = conn.createStatement();
-             ResultSet rs = s.executeQuery(sql)) {
-            while (rs.next()) list.add(extract(rs));
+                Statement s = conn.createStatement();
+                ResultSet rs = s.executeQuery(sql)) {
+            while (rs.next())
+                list.add(extract(rs));
         }
         return list;
     }
@@ -100,7 +108,7 @@ public class AccountDAO {
     public void update(Account a) throws SQLException {
         String sql = "UPDATE accounts SET balance=?, pin_smart=?, account_status=? WHERE account_id=?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setBigDecimal(1, a.getBalance());
             ps.setString(2, a.getPinSmart());
             ps.setString(3, a.getAccountStatus());
@@ -113,30 +121,20 @@ public class AccountDAO {
     public void updateBalance(int accountID, BigDecimal balance) throws SQLException {
         String sql = "UPDATE accounts SET balance=? WHERE account_id=?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setBigDecimal(1, balance);
             ps.setInt(2, accountID);
-            ps.executeUpdate();
-        }
-    }
-    
-    // [SERVICE] Cập nhật số dư trong Transaction (Có truyền Connection để rollback nếu lỗi)
-    public void updateBalance_service(Connection conn, int id, BigDecimal balance) throws SQLException{
-        String sql = "UPDATE accounts SET balance=? WHERE account_id=?";
-        try(PreparedStatement ps = conn.prepareStatement(sql)){
-            ps.setBigDecimal(1, balance);
-            ps.setInt(2, id);
             ps.executeUpdate();
         }
     }
 
-    // [CẬP NHẬT] Đổi mã PIN Smart
-    public void updatePIN(int accountID, String pin) throws SQLException {
-        String sql = "UPDATE accounts SET pin_smart=? WHERE account_id=?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, pin);
-            ps.setInt(2, accountID);
+    // [SERVICE] Cập nhật số dư trong Transaction (Có truyền Connection để rollback
+    // nếu lỗi)
+    public void updateBalance_service(Connection conn, int id, BigDecimal balance) throws SQLException {
+        String sql = "UPDATE accounts SET balance=? WHERE account_id=?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, balance);
+            ps.setInt(2, id);
             ps.executeUpdate();
         }
     }
@@ -145,34 +143,29 @@ public class AccountDAO {
     public void updateStatus(int accountID, String status) throws SQLException {
         String sql = "UPDATE accounts SET account_status=? WHERE account_id=?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, status);
             ps.setInt(2, accountID);
             ps.executeUpdate();
         }
     }
 
-    // [XÓA] Xóa tài khoản khỏi hệ thống
-    public void delete(int accountID) throws SQLException {
-        String sql = "DELETE FROM accounts WHERE account_id=?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, accountID);
-            ps.executeUpdate();
-        }
-    }
-
     // [GIAO DỊCH] Helper để ghi lịch sử giao dịch
-    public void insertTransaction(Integer fromAccountID, Integer toAccountID, BigDecimal amount, String type, String content, String status) throws SQLException {
+    public void insertTransaction(Integer fromAccountID, Integer toAccountID, BigDecimal amount, String type,
+            String content, String status) throws SQLException {
         String sql = "INSERT INTO transactions(from_account_id, to_account_id, amount, transaction_type, transaction_content, transaction_status, created_at) VALUES(?,?,?,?,?,?,NOW())";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            if (fromAccountID == null) ps.setNull(1, Types.INTEGER);
-            else ps.setInt(1, fromAccountID);
+            if (fromAccountID == null)
+                ps.setNull(1, Types.INTEGER);
+            else
+                ps.setInt(1, fromAccountID);
 
-            if (toAccountID == null) ps.setNull(2, Types.INTEGER);
-            else ps.setInt(2, toAccountID);
+            if (toAccountID == null)
+                ps.setNull(2, Types.INTEGER);
+            else
+                ps.setInt(2, toAccountID);
 
             ps.setBigDecimal(3, amount);
             ps.setString(4, type);
@@ -191,7 +184,7 @@ public class AccountDAO {
         a.setBalance(rs.getBigDecimal("balance"));
         a.setPinSmart(rs.getString("pin_smart"));
         a.setAccountStatus(rs.getString("account_status"));
-        
+
         // Bổ sung lấy ngày tạo (để hiển thị ở form Thông tin tài khoản)
         try {
             Timestamp ts = rs.getTimestamp("created_at");
@@ -201,7 +194,32 @@ public class AccountDAO {
         } catch (Exception e) {
             // Bỏ qua nếu không có cột created_at
         }
-        
+
         return a;
     }
+    // Trong lớp DataAccessObject.AccountDAO
+
+public Account getAccountByNumber(String accountNumber) throws SQLException {
+    Account account = null;
+    String sql = "SELECT * FROM accounts WHERE account_number = ?";
+
+    try (Connection conn = DatabaseConnection.getConnection();
+         PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+        pstmt.setString(1, accountNumber);
+        
+        try (ResultSet rs = pstmt.executeQuery()) {
+            if (rs.next()) {
+                account = new Account();
+                account.setAccountID(rs.getInt("account_id"));
+                account.setCustomerID(rs.getInt("customer_id"));
+                account.setAccountNumber(rs.getString("account_number"));
+                account.setBalance(rs.getBigDecimal("balance"));
+                account.setAccountStatus(rs.getString("account_status")); // Lấy trạng thái
+                // ... (Thêm các trường khác nếu cần)
+            }
+        }
+    }
+    return account;
+}
 }

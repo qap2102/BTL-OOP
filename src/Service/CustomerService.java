@@ -8,18 +8,32 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date; // Thêm import cho java.util.Date
 
 public class CustomerService {
-    
+
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final AccountDAO accountDAO = new AccountDAO();
     private final TransactionDAO transactionDAO = new TransactionDAO();
-    
+
     // [ĐĂNG KÝ] Xử lý đầy đủ quy trình: Validate -> Tạo Customer -> Tạo Account mặc định
-    public Customer registerNewUserFullProcess(String username, String fullName, String password, String citizenID, 
-                                           String email, String phone, String address, 
-                                           String dateOfBirth, String pin) throws SQLException {
-        
+    private String mapGenderToDb(String displayGender) {
+        if (displayGender == null) return "Other";
+
+        switch (displayGender.toUpperCase()) {
+            case "NAM": return "Male";
+            case "NỮ":
+            case "NU": return "Female";
+            case "KHÁC":
+            case "KHAC": return "Other";
+            default: return "Other";
+        }
+    }
+    
+    public Customer registerNewUserFullProcess(String username, String fullName, String password, String citizenID,
+            String email, String phone, String address,
+            String dateOfBirth, String pin) throws SQLException {
+
         // Chuyển đổi định dạng ngày sinh
         try {
             if (dateOfBirth.contains("/")) {
@@ -33,112 +47,101 @@ public class CustomerService {
         }
 
         // 1. Kiểm tra trùng lặp thông tin
-        if(customerDAO.findByRegister(username, citizenID, email, phone) != null){
+        if (customerDAO.findByRegister(username, citizenID, email, phone) != null) {
             throw new IllegalArgumentException("Tên đăng nhập, CCCD, Email hoặc SĐT đã tồn tại.");
         }
-        
+
         // 2. Thiết lập dữ liệu mặc định
-        String sex = "OTHER";
+        String sex = "Khác";
+        sex = mapGenderToDb(sex);
         String nationality = "Việt Nam";
         String placeOfOrigin = address;
         String placeOfResidence = address;
-        
+
         // 3. Gọi DAO để tạo khách hàng
-        Customer newCus = customerDAO.registerCustomer(username, password, citizenID, fullName, 
-                                             dateOfBirth, sex, nationality, placeOfOrigin, 
-                                             placeOfResidence, email, phone);
-        
+        Customer newCus = customerDAO.registerCustomer(username, password, citizenID, fullName,
+                dateOfBirth, sex, nationality, placeOfOrigin,
+                placeOfResidence, email, phone);
+
         // 4. Tạo tài khoản ngân hàng mặc định (Tặng 50k)
         if (newCus != null) {
             // Sử dụng SĐT làm số tài khoản (hoặc random nếu SĐT lỗi)
-            String accountNumber = (phone == null || phone.isEmpty()) ? 
-                    String.valueOf(System.currentTimeMillis()).substring(5) : phone;
-            
+            String accountNumber = (phone == null || phone.isEmpty())
+                    ? String.valueOf(System.currentTimeMillis()).substring(5)
+                    : phone;
+
             BigDecimal initialBalance = new BigDecimal("50000");
-            
+
             accountDAO.createAccount(
-                newCus.getCustomerID(), 
-                accountNumber, 
-                pin, 
-                initialBalance
-            );
+                    newCus.getCustomerID(),
+                    accountNumber,
+                    pin,
+                    initialBalance);
         }
         return newCus;
     }
 
-    // [ĐĂNG KÝ] Hàm cơ bản chỉ tạo Customer (Ít dùng, chủ yếu dùng hàm FullProcess ở trên)
-    public Customer registerCustomer(String username, String passwordHash, String citizenID, String fullName, String dateOfBirth, String sex, String nationality, String placeOfOrigin, String placeOfResidence, String email, String phone) throws SQLException{
-        if(customerDAO.findByRegister(username, citizenID, email, phone) != null){
+    // [ĐĂNG KÝ] Hàm cơ bản chỉ tạo Customer (Ít dùng, chủ yếu dùng hàm FullProcess
+    // ở trên)
+    public Customer registerCustomer(String username, String passwordHash, String citizenID, String fullName,
+            String dateOfBirth, String sex, String nationality, String placeOfOrigin, String placeOfResidence,
+            String email, String phone) throws SQLException {
+        if (customerDAO.findByRegister(username, citizenID, email, phone) != null) {
             throw new IllegalArgumentException("Thông tin đã tồn tại trong hệ thống.");
         }
-        return customerDAO.registerCustomer(username, passwordHash, citizenID, fullName, dateOfBirth, sex, nationality, placeOfOrigin, placeOfResidence, email, phone);
+        return customerDAO.registerCustomer(username, passwordHash, citizenID, fullName, dateOfBirth, sex, nationality,
+                placeOfOrigin, placeOfResidence, email, phone);
     }
-    
+
     // [ĐĂNG NHẬP] Kiểm tra user/pass và trạng thái khóa
-    public Customer login(String username, String password) throws SQLException{
+    public Customer login(String username, String password) throws SQLException {
         Customer cus = customerDAO.findByLogin(username, password);
         Account acc = accountDAO.getAccountByUsername(username);
-        if(cus == null){
+        if (cus == null) {
             throw new IllegalArgumentException("Tên đăng nhập hoặc mật khẩu không đúng.");
         }
-        if("LOCKED".equalsIgnoreCase(acc.getAccountStatus())){
+        if ("LOCKED".equalsIgnoreCase(acc.getAccountStatus())) {
             throw new IllegalArgumentException("Tài khoản đã bị khóa.");
         }
         return cus;
     }
-    
+
     // [CẬP NHẬT] Sửa thông tin cá nhân
-    public void updateInfor(Customer customer) throws SQLException{
-        if(customerDAO.findByID(customer.getCustomerID()) == null){
+    public void updateInfor(Customer customer) throws SQLException {
+        if (customerDAO.findByID(customer.getCustomerID()) == null) {
             throw new IllegalArgumentException("Tài khoản không tồn tại.");
         }
         customerDAO.update(customer);
     }
-    
-    // [ADMIN] Cập nhật trạng thái (Khóa/Mở khóa)
-    public void updateStatus(int id, String status) throws SQLException{
-        if(customerDAO.findByID(id) == null){
-            throw new IllegalArgumentException("Tài khoản không tồn tại.");
-        }
-        customerDAO.updateStatus(id, status);
-    }
-    
-    // [ADMIN] Xóa tài khoản
-    public void delete(int id) throws SQLException{
-        if(customerDAO.findByID(id) == null){
-            throw new IllegalArgumentException("Tài khoản không tồn tại.");
-        }
-        customerDAO.delete(id);
-    }
-    
+
     // [ADMIN] Lấy danh sách toàn bộ khách hàng
-    public List<Customer> getAllCustomer() throws SQLException{
+    public List<Customer> getAllCustomer() throws SQLException {
         return customerDAO.getAllCustomers();
     }
 
     // [ĐỔI MẬT KHẨU] Đổi pass khi đã đăng nhập (Cần mật khẩu cũ)
-    public boolean changePassword(Customer customer, String oldPass, String newPass) throws SQLException{
-        if(!customer.getPasswordHash().equals(oldPass)){
+    public boolean changePassword(Customer customer, String oldPass, String newPass) throws SQLException {
+        if (!customer.getPasswordHash().equals(oldPass)) {
             throw new IllegalArgumentException("Mật khẩu cũ không đúng!");
         }
-        return customerDAO.updatePassword(customer.getCustomerID(), newPass); 
+        return customerDAO.updatePassword(customer.getCustomerID(), newPass);
     }
 
-    // [GIAO DỊCH] Lấy lịch sử theo Username
+    // [GIAO DỊCH] Lấy lịch sử theo Username (Nếu tài khoản của người dùng bị khóa, hàm login đã ngăn cản)
     public List<Transaction> getTransactionHistory(String username) throws SQLException {
         if (username == null || username.isEmpty()) {
             throw new IllegalArgumentException("Username không hợp lệ!");
         }
         return transactionDAO.getTransactionsByUsername(username);
     }
-    
+
     // [GIAO DỊCH] Rút tiền mặt
     public void withdraw(String username, long amountVal) throws Exception {
         if (amountVal <= 0) {
             throw new IllegalArgumentException("Số tiền rút phải lớn hơn 0!");
         }
-        
-        BigDecimal amount = BigDecimal.valueOf(amountVal); 
+
+        BigDecimal amount = BigDecimal.valueOf(amountVal);
 
         Account account = accountDAO.getAccountByUsername(username);
         if (account == null) {
@@ -148,16 +151,18 @@ public class CustomerService {
         if (account.getBalance().compareTo(amount) < 0) {
             throw new IllegalArgumentException("Số dư không đủ!");
         }
+        
+        // *Chú ý: Logic đã được bảo vệ bởi hàm login, không cần check trạng thái LOCKED ở đây.
 
         BigDecimal newBalance = account.getBalance().subtract(amount);
         account.setBalance(newBalance);
 
-        accountDAO.updateBalance(account.getAccountID(), account.getBalance()); 
+        accountDAO.updateBalance(account.getAccountID(), account.getBalance());
 
-        accountDAO.insertTransaction(account.getAccountID(), null, amount, "Rút tiền", "Rút tiền mặt", "SUCCESS");
+        accountDAO.insertTransaction(account.getAccountID(), null, amount, "Rút tiền", "Rút tiền mặt", "Thành công");
     }
 
-    // [QUÊN MẬT KHẨU] Reset pass bằng CCCD + SĐT (Không cần pass cũ, nhưng check trùng pass cũ)
+    // [QUÊN MẬT KHẨU] Reset pass bằng CCCD + SĐT
     public void resetPassword(String cccd, String phone, String newPass) throws SQLException {
         // Bước 1: Tìm khách hàng xác thực
         Customer c = customerDAO.findByCccdAndPhone(cccd, phone);
@@ -169,7 +174,7 @@ public class CustomerService {
         if (c.getPasswordHash().equals(newPass)) {
             throw new IllegalArgumentException("Mật khẩu mới không được trùng với mật khẩu cũ!");
         }
-        
+
         // Bước 3: Cập nhật
         boolean success = customerDAO.updatePassword(c.getCustomerID(), newPass);
         if (!success) {
@@ -178,45 +183,65 @@ public class CustomerService {
     }
 
     // [GIAO DỊCH] Lấy lịch sử theo CustomerID (Dùng cho Admin)
+    // *** ĐÃ CẬP NHẬT: Lọc tài khoản bị khóa và lọc giao dịch cũ (30 ngày gần nhất) ***
     public List<Transaction> getTransactionHistoryByCustomerId(int customerId) {
         List<Transaction> transactions = new ArrayList<>();
-        
+
         String sql = """
             SELECT t.* FROM transactions t
-            WHERE t.from_account_id IN (SELECT account_id FROM accounts WHERE customer_id = ?)
-               OR t.to_account_id IN (SELECT account_id FROM accounts WHERE customer_id = ?)
+            -- JOIN để lấy trạng thái của tài khoản GỬI (from_acc)
+            JOIN accounts from_acc ON t.from_account_id = from_acc.account_id
+            -- LEFT JOIN để lấy trạng thái của tài khoản NHẬN (to_acc) - có thể NULL
+            LEFT JOIN accounts to_acc ON t.to_account_id = to_acc.account_id 
+            WHERE 
+                -- Điều kiện 1: Đảm bảo giao dịch liên quan đến khách hàng hiện tại
+                (from_acc.customer_id = ? OR to_acc.customer_id = ?)
+                -- Điều kiện 2: Tài khoản GỬI KHÔNG được bị khóa
+                AND from_acc.account_status != 'LOCKED'
+                -- Điều kiện 3: Tài khoản NHẬN (nếu có) KHÔNG được bị khóa
+                AND (to_acc.account_id IS NULL OR to_acc.account_status != 'LOCKED')
+                -- Điều kiện 4: Chỉ lấy giao dịch trong 30 ngày gần nhất (Cú pháp MySQL)
+                AND t.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) 
             ORDER BY t.created_at DESC
             LIMIT 100
             """;
-        
+
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setInt(1, customerId);
             pstmt.setInt(2, customerId);
-            
+
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
                 Transaction transaction = new Transaction();
                 transaction.setTransactionID(rs.getInt("transaction_id"));
                 transaction.setTransactionType(rs.getString("transaction_type"));
                 transaction.setAmount(rs.getBigDecimal("amount"));
-                transaction.setFromAccountID(rs.getInt("from_account_id"));
-                transaction.setToAccountID(rs.getInt("to_account_id"));
-                transaction.setTransactionContent(rs.getString("transaction_content"));
                 
+                // Xử lý giá trị có thể NULL cho to_account_id
+                int toAccountId = rs.getInt("to_account_id");
+                if (rs.wasNull()) {
+                    transaction.setToAccountID(null);
+                } else {
+                    transaction.setToAccountID(toAccountId);
+                }
+                
+                transaction.setFromAccountID(rs.getInt("from_account_id"));
+                transaction.setTransactionContent(rs.getString("transaction_content"));
+
                 Timestamp timestamp = rs.getTimestamp("created_at");
                 if (timestamp != null) {
                     transaction.setCreatedAt(timestamp.toLocalDateTime());
                 }
-                
+
                 transactions.add(transaction);
             }
         } catch (SQLException e) {
             e.printStackTrace();
             throw new RuntimeException("Lỗi khi lấy lịch sử giao dịch: " + e.getMessage());
         }
-        
+
         return transactions;
     }
 }
